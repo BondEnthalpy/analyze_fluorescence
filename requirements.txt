@@ -1,0 +1,8 @@
+numpy
+opencv-python
+tifffile
+pandas
+openpyxl
+streamlit
+watchdog
+nd2
