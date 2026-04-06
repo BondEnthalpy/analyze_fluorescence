@@ -1,64 +1,118 @@
-# 荧光分析脚本 - 使用文档
+# 荧光图像分析工具
 
-## 概述
-`analyze_fluorescence.py` 是一个用于批量处理荧光显微镜图像（TIFF格式）的Python脚本。
-它可以自动检测荧光区域，执行形态学分析（背景扣除/腐蚀），计算平均强度，并将结果导出到Excel电子表格中。
+用于神经退行性疾病研究的荧光显微镜图像批量分析工具，支持多页 TIFF/OME-TIFF 格式。
 
 ## 功能特性
-- **批量处理**：自动处理指定目录下的所有 `.tif` 或 `.tiff` 文件。
-- **多通道支持**：处理多通道图像（例如 OME-TIFF），根据配置处理交替通道。
-- **自动分割**：使用 Otsu 阈值分割和轮廓检测来寻找感兴趣区域 (ROI)。
-- **强度分析**：计算原始区域和腐蚀后的内部区域（模拟细胞质/细胞核分离或背景排除）的平均强度。
-- **Excel 导出**：将所有数据汇总到一个 Excel 文件中。
-- **可视化验证**：生成带有检测轮廓的注释图像以供验证。
 
-## 先决条件
-确保已安装 Python。需要安装以下库：
+- **批量处理**：自动处理文件夹内所有 `.tif` 或 `.tiff` 文件
+- **多页支持**：读取 TIFF 文件的所有页，智能处理偶数页 (0, 2, 4, 6...)
+- **自动分割**：使用 Otsu 阈值分割和轮廓检测寻找 ROI
+- **形态学分析**：计算原始区域和腐蚀后区域（缩小30像素）的平均荧光强度
+- **结果导出**：生成 Excel 表格和带标注的可视化图像
+- **Web 界面**：基于 Streamlit 的图形界面，支持文件夹浏览和进度显示
+
+## 安装依赖
 
 ```bash
-pip install numpy opencv-python-headless tifffile pandas openpyxl
+pip install numpy opencv-python tifffile pandas openpyxl streamlit watchdog
+```
+
+或使用虚拟环境：
+
+```bash
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
 ## 使用方法
 
-### 方法一：图形界面 (推荐)
-1.  **准备数据**：将所有 TIFF 图像放在同一个文件夹中。
-2.  **启动程序**：
-    - 双击运行 `start_app.command` 文件。
-    - 或者在终端中运行：
-      ```bash
-      ./start_app.command
-      ```
-3.  **操作步骤**：
-    - 网页会自动在浏览器中打开。
-    - 点击 **“选择文件夹”** 按钮，选择包含图像的文件夹。
-    - 或者直接粘贴文件夹的完整路径。
-    - 点击 **“运行分析”**。
+### 方法一：Web 界面（推荐）
 
-4.  **查看结果**：
-    - 页面下方会显示分析结果表格和处理后的图像预览。
-    - 结果文件（Excel 和 图像）会自动保存在您选择的文件夹下的 `analysis_results` 目录中。
+```bash
+streamlit run app.py
+```
 
-### 方法二：命令行脚本 (高级)
-1.  **运行脚本**：
-    ```bash
-    python analyze_fluorescence.py
-    ```
-2.  **输入路径**：按提示输入文件夹路径。
+浏览器自动打开界面：
+1. 使用文件夹浏览器导航到数据目录
+2. 点击 **"🚀 在此文件夹运行分析"**
+3. 查看结果表格和图像预览
+4. 结果自动保存到 `analysis_results_YYYYMMDD_HHMMSS/` 目录（每次运行生成独立文件夹）
+
+### 方法二：macOS 快捷启动
+
+双击 `start_app.command` 文件（自动激活虚拟环境并启动 Streamlit）
+
+### 方法三：命令行
+
+```bash
+python analyze_fluorescence.py
+# 按提示输入文件夹路径
+```
+
+## 输入数据格式
+
+支持的 TIFF 文件类型：
+- 单页灰度图像
+- 多页 TIFF（如时间序列、Z-stack）
+- OME-TIFF 格式
+
+**处理逻辑**：读取文件的所有页，仅处理偶数索引页（0, 2, 4, 6...）
 
 ## 输出结构
 
+每次运行都会生成带有时间戳的独立输出目录，避免覆盖之前的结果：
+
 ```
 输入文件夹/
-├── image1.tif
-├── image2.tif
-└── analysis_results/          <-- 脚本创建
-    ├── image1_ch0_result.png
-    ├── image1_ch2_result.png
-    ├── ...
-    └── analysis_results.xlsx  <-- 汇总数据
+├── image1.ome.tif
+├── image2.ome.tif
+├── analysis_results_20260406_143052/    # 第一次运行（时间戳格式：YYYYMMDD_HHMMSS）
+│   ├── image1_page0_result.png           # 标注图像：绿色=原始轮廓，蓝色=腐蚀后轮廓
+│   ├── image1_page2_result.png
+│   ├── image1_page4_result.png
+│   ├── image2_page0_result.png
+│   ├── ...
+│   └── analysis_results.xlsx             # 汇总数据（按文件名和页数排序）
+├── analysis_results_20260407_091530/    # 第二次运行
+│   └── ...
+└── analysis_results_20260408_160200/    # 第三次运行
+    └── ...
 ```
 
+## Excel 输出字段
+
+| 字段 | 说明 |
+|------|------|
+| File Name | 原始文件名 |
+| Page | TIFF 页数索引 |
+| Mean Intensity (Original) | 原始 ROI 平均荧光强度 |
+| Mean Intensity (Eroded) | 腐蚀后 ROI 平均荧光强度（排除边缘） |
+| Difference | 两者差值（边缘效应评估） |
+
+## 分析流程
+
+1. **读取**：使用 `tifffile` 读取所有 TIFF 页
+2. **筛选**：仅处理偶数页 (0, 2, 4...)
+3. **预处理**：归一化到 8-bit，高斯模糊
+4. **分割**：Otsu 阈值 + 轮廓检测（取最大区域）
+5. **腐蚀**：距离变换收缩 30 像素，生成内部掩膜
+6. **计算**：分别计算原始区域和腐蚀区域的平均强度
+7. **可视化**：生成带标注的结果图像
+
 ## 故障排除
-- **未找到轮廓 (No contours found)**：尝试在脚本中调整阈值参数，或确保图像具有足够的对比度。
-- **缺少模块 (Missing modules)**：运行上面的 `pip install` 命令来安装依赖项。
+
+| 问题 | 解决方法 |
+|------|----------|
+| 未找到轮廓 | 检查图像对比度，或调整阈值参数 |
+| 缺少模块 | 运行 `pip install` 安装依赖 |
+| OME-TIFF 读取错误 | 程序会自动读取所有页，忽略 OME 元数据声明 |
+| 结果排序混乱 | 确保文件名包含数字时使用前导零（如 page01, page02） |
+
+## 默认数据路径
+
+程序默认数据目录：
+```
+/Volumes/WJW/科研/神经退行性疾病检测/数据
+```
+
+可在 `app.py` 中修改 `DEFAULT_ROOT` 变量。
